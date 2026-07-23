@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Lönetracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#201e1d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lönetracker">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-512.png">
+<link rel="icon" href="./icon-512.png">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#d7d3d3;font-family:'Archivo',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  input:focus,button:focus,label:focus{outline:none}
+  input:focus-visible,button:focus-visible{outline:2px solid #ec3013;outline-offset:2px}
+  a{color:#ae1800;text-underline-offset:3px}
+  a:hover{color:#ec3013}
+  ::selection{background:rgba(236,48,19,0.3)}
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;justify-content:center;background:#d7d3d3">
+  <div style="width:100%;max-width:460px;min-height:100vh;background:#f3f2f2;display:flex;flex-direction:column;box-shadow:0 12px 32px rgba(45,43,43,0.22)">
+
+    <div style="padding:20px 20px 16px;border-bottom:2px solid rgba(32,30,29,0.4);display:flex;flex-direction:column;gap:2px">
+      <div style="font-family:'Archivo',sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.01em;color:#201e1d">Lönetracker</div>
+      <div style="font-size:12px;color:#7d7979;text-transform:uppercase;letter-spacing:0.08em">ÖB · Klädbutik</div>
+    </div>
+
+    <div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px">
+
+      <sc-if value="{{ isLonTab }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#7d7979">Schema</div>
+
+            <sc-if value="{{ hasSchedule }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#eae9e9;border:1px solid rgba(32,30,29,0.4)">
+                <div style="font-size:13px;color:#201e1d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px">{{ fileName }}</div>
+                <label for="scheduleFile" style="font-family:'Archivo';font-weight:800;font-size:12px;color:#ae1800;cursor:pointer;text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap">Byt fil</label>
+              </div>
+            </sc-if>
+            <sc-if value="{{ noSchedule }}" hint-placeholder-val="{{ true }}">
+              <label for="scheduleFile" style="border:2px dashed rgba(32,30,29,0.4);padding:24px 16px;text-align:center;display:flex;flex-direction:column;gap:6px;cursor:pointer">
+                <div style="font-weight:800;font-size:14px;color:#201e1d">Ladda upp schema</div>
+                <div style="font-size:12px;color:#7d7979">Excel eller CSV med kolumnerna Datum, Start, Slut (Rast valfritt)</div>
+              </label>
+            </sc-if>
+            <input id="scheduleFile" type="file" accept=".csv,.xlsx,.xls" onChange="{{ handleFile }}" style="display:none"/>
+
+            <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:10px 12px;background:#fff2ef;border:1px solid #ec3013;color:#ae1800;font-size:12px">{{ parseError }}</div>
+            </sc-if>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#eae9e9;border:1px solid rgba(32,30,29,0.4)">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="font-size:13px;font-weight:800;color:#201e1d">Grundlön/timme</div>
+              <div style="font-size:11px;color:#7d7979">Innan OB-tillägg</div>
+            </div>
+            <input type="number" step="0.01" value="{{ baseRate }}" onChange="{{ onBaseRateChange }}" style="width:90px;padding:8px 10px;border:1px solid rgba(32,30,29,0.4);background:#f3f2f2;font-size:14px;text-align:right;font-family:'Archivo';color:#201e1d"/>
+          </div>
+
+          <sc-if value="{{ hasSchedule }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:20px">
+
+              <div style="display:flex;flex-direction:column;gap:4px;padding:18px;background:#201e1d;color:#f3f2f2">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#bab6b6">Bruttolön denna period</div>
+                <div style="font-size:34px;font-weight:800;font-family:'Archivo'">{{ grossLabel }}</div>
+                <div style="font-size:12px;color:#bab6b6">{{ totalHoursLabel }} arbetade timmar · {{ shiftCountLabel }} pass</div>
+              </div>
+
+              <div style="display:flex;flex-direction:column">
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#7d7979;margin-bottom:8px">Din lönespec</div>
+                <div style="display:grid;grid-template-columns:1fr auto auto;gap:6px 12px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7d7979;padding-bottom:8px;border-bottom:2px solid rgba(32,30,29,0.4)">
+                  <div>Typ</div><div style="text-align:right">Timmar</div><div style="text-align:right">Belopp</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px 12px;font-size:14px;color:#201e1d;padding:10px 0;border-bottom:1px solid rgba(32,30,29,0.2)">
+                  <div>Timlön ({{ baseRateLabel }} kr/h)</div><div style="text-align:right">{{ totalHoursLabel }}</div><div style="text-align:right;font-weight:600">{{ baseAmountLabel }}</div>
+                </div>
+                <sc-if value="{{ hasOb50 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px 12px;font-size:14px;color:#201e1d;padding:10px 0;border-bottom:1px solid rgba(32,30,29,0.2)">
+                    <div>OB 50% ({{ ob50RateLabel }} kr/h)</div><div style="text-align:right">{{ ob50HoursLabel }}</div><div style="text-align:right;font-weight:600">{{ ob50AmountLabel }}</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ hasOb70 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px 12px;font-size:14px;color:#201e1d;padding:10px 0;border-bottom:1px solid rgba(32,30,29,0.2)">
+                    <div>OB 70% ({{ ob70RateLabel }} kr/h)</div><div style="text-align:right">{{ ob70HoursLabel }}</div><div style="text-align:right;font-weight:600">{{ ob70AmountLabel }}</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ hasOb100 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px 12px;font-size:14px;color:#201e1d;padding:10px 0;border-bottom:1px solid rgba(32,30,29,0.2)">
+                    <div>OB 100% ({{ ob100RateLabel }} kr/h)</div><div style="text-align:right">{{ ob100HoursLabel }}</div><div style="text-align:right;font-weight:600">{{ ob100AmountLabel }}</div>
+                  </div>
+                </sc-if>
+                <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px 12px;font-size:15px;color:#201e1d;font-weight:800;padding:12px 0 0">
+                  <div>Totalt</div><div></div><div style="text-align:right">{{ grossLabel }}</div>
+                </div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#7d7979">Pass</div>
+                <sc-for list="{{ shiftRows }}" as="row" hint-placeholder-count="3">
+                  <div style="border:1px solid rgba(32,30,29,0.4);background:#f8f4f4">
+                    <div onClick="{{ row.toggle }}" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer">
+                      <div>
+                        <div style="font-weight:800;font-size:13px;color:#201e1d">{{ row.dateLabel }}</div>
+                        <div style="font-size:12px;color:#7d7979">{{ row.timeLabel }}</div>
+                      </div>
+                      <div style="font-weight:800;font-size:14px;color:#201e1d">{{ row.amountLabel }}</div>
+                    </div>
+                    <sc-if value="{{ row.expanded }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:5px;font-size:12px;color:#605d5d;border-top:1px solid rgba(32,30,29,0.2);padding-top:10px">
+                        <sc-if value="{{ row.hasBase }}" hint-placeholder-val="{{ true }}">
+                          <div style="display:flex;justify-content:space-between"><span>Grundtid</span><span>{{ row.baseLabel }}</span></div>
+                        </sc-if>
+                        <sc-if value="{{ row.hasOb50 }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;justify-content:space-between"><span>OB 50%</span><span>{{ row.ob50Label }}</span></div>
+                        </sc-if>
+                        <sc-if value="{{ row.hasOb70 }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;justify-content:space-between"><span>OB 70%</span><span>{{ row.ob70Label }}</span></div>
+                        </sc-if>
+                        <sc-if value="{{ row.hasOb100 }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;justify-content:space-between"><span>OB 100%</span><span>{{ row.ob100Label }}</span></div>
+                        </sc-if>
+                        <sc-if value="{{ row.hasBreak }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;justify-content:space-between;color:#9b9797"><span>Rast avdragen</span><span>{{ row.breakLabel }}</span></div>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+
+              <button onClick="{{ clearSchedule }}" style="padding:12px 16px;background:transparent;border:1px solid rgba(32,30,29,0.4);color:#201e1d;font-family:'Archivo';font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;cursor:pointer;text-align:left">Rensa schema</button>
+            </div>
+          </sc-if>
+
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isPaymentsTab }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#7d7979">Lägg till utgift</div>
+            <div style="display:flex;gap:8px">
+              <input placeholder="Namn" value="{{ newPaymentName }}" onChange="{{ onNameChange }}" style="flex:1;min-width:0;padding:10px 12px;border:1px solid rgba(32,30,29,0.4);background:#fff;font-size:13px;font-family:'Archivo';color:#201e1d"/>
+              <input placeholder="Belopp" inputMode="decimal" value="{{ newPaymentAmount }}" onChange="{{ onAmountChange }}" style="width:90px;padding:10px 12px;border:1px solid rgba(32,30,29,0.4);background:#fff;font-size:13px;font-family:'Archivo';color:#201e1d"/>
+              <button onClick="{{ addPayment }}" style="padding:10px 16px;background:#ec3013;color:#fff;border:none;font-weight:800;font-size:13px;font-family:'Archivo';cursor:pointer;text-transform:uppercase;letter-spacing:0.04em">Lägg till</button>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{ paymentRows }}" as="p" hint-placeholder-count="3">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(32,30,29,0.2)">
+                <div style="font-size:14px;color:#201e1d">{{ p.name }}</div>
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div style="font-size:14px;font-weight:600;color:#201e1d">{{ p.amountLabel }}</div>
+                  <button onClick="{{ p.remove }}" style="border:none;background:none;color:#ae1800;font-size:18px;line-height:1;cursor:pointer;font-weight:800;padding:0 2px">×</button>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noPayments }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:16px 0;font-size:13px;color:#7d7979">Inga utgifter tillagda än.</div>
+            </sc-if>
+            <div style="display:flex;justify-content:space-between;padding:14px 0 0;font-weight:800;font-size:15px;color:#201e1d">
+              <div>Totalt</div><div>{{ paymentsTotalLabel }}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px;padding:16px;background:#201e1d;color:#f3f2f2">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#bab6b6">Vad har jag kvar?</div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="font-size:12px;color:#bab6b6">Din nettolön (från lönebeskedet)</div>
+              <input inputMode="decimal" placeholder="t.ex. 23097" value="{{ netInput }}" onChange="{{ onNetChange }}" style="padding:10px 12px;background:#2d2b2b;border:1px solid #605d5d;color:#f3f2f2;font-size:14px;font-family:'Archivo'"/>
+            </div>
+            <sc-if value="{{ hasNet }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:2px solid rgba(243,242,242,0.3)">
+                <div style="font-size:14px;color:#bab6b6">Kvar efter utgifter</div>
+                <div style="font-size:20px;font-weight:800;color:{{ leftoverColor }}">{{ leftoverLabel }}</div>
+              </div>
+            </sc-if>
+          </div>
+
+        </div>
+      </sc-if>
+
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;border-top:2px solid rgba(32,30,29,0.4)">
+      <button onClick="{{ goLon }}" style="{{ lonNavStyle }}">Lön</button>
+      <button onClick="{{ goPayments }}" style="{{ paymentsNavStyle }}">Betalningar</button>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;baseRate&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:177.44,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:50,&quot;max&quot;:400,&quot;step&quot;:0.01,&quot;section&quot;:&quot;Lön&quot;}}">
+function toMinutes(t){
+  if(t==null) return null;
+  const s = String(t).trim();
+  if(s==='') return null;
+  const iso = s.match(/T(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if(iso) return (+iso[1])*60 + (+iso[2]);
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(!m) {
+    const n = parseFloat(s.replace(',','.'));
+    if(isFinite(n) && n>0 && n<2) return Math.round(n*24*60);
+    return null;
+  }
+  return (+m[1])*60 + (+m[2]);
+}
+async function readXlsxRows(arrayBuffer){
+  const buf = new Uint8Array(arrayBuffer);
+  const ru16 = o => buf[o] | (buf[o+1]<<8);
+  const ru32 = o => (buf[o] | (buf[o+1]<<8) | (buf[o+2]<<16) | (buf[o+3]<<24))>>>0;
+  let eocd=-1;
+  for(let i=buf.length-22;i>=0;i--){ if(ru32(i)===0x06054b50){ eocd=i; break; } }
+  if(eocd===-1) throw new Error('Ogiltig Excel-fil.');
+  const cdOffset = ru32(eocd+16), cdCount = ru16(eocd+10);
+  let p = cdOffset; const entries = {};
+  for(let i=0;i<cdCount;i++){
+    if(ru32(p)!==0x02014b50) break;
+    const compMethod=ru16(p+10), compSize=ru32(p+20), nameLen=ru16(p+28), extraLen=ru16(p+30), commentLen=ru16(p+32);
+    const localOffset = ru32(p+42);
+    const name = new TextDecoder().decode(buf.slice(p+46,p+46+nameLen));
+    entries[name] = {compMethod, compSize, localOffset};
+    p += 46+nameLen+extraLen+commentLen;
+  }
+  async function extract(name){
+    const e = entries[name]; if(!e) return null;
+    const lp = e.localOffset;
+    const nameLen = ru16(lp+26), extraLen = ru16(lp+28);
+    const dataStart = lp+30+nameLen+extraLen;
+    const compData = buf.slice(dataStart, dataStart+e.compSize);
+    if(e.compMethod===0) return new TextDecoder('utf-8').decode(compData);
+    const stream = new Blob([compData]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    const out = await new Response(stream).arrayBuffer();
+    return new TextDecoder('utf-8').decode(out);
+  }
+  const dp = new DOMParser();
+  let sheetTarget = 'worksheets/sheet1.xml';
+  const wbXml = await extract('xl/workbook.xml');
+  const relsXml = await extract('xl/_rels/workbook.xml.rels');
+  if(wbXml && relsXml){
+    const wbDoc = dp.parseFromString(wbXml,'application/xml');
+    const firstSheet = wbDoc.querySelector('sheets sheet');
+    const rid = firstSheet && (firstSheet.getAttribute('r:id')||firstSheet.getAttribute('id'));
+    const relsDoc = dp.parseFromString(relsXml,'application/xml');
+    if(rid){
+      const rel = Array.from(relsDoc.getElementsByTagName('Relationship')).find(r=>r.getAttribute('Id')===rid);
+      if(rel) sheetTarget = rel.getAttribute('Target').replace(/^\/?xl\//,'').replace(/^\//,'');
+    }
+  }
+  const sheetXml = (await extract('xl/'+sheetTarget)) || (await extract(sheetTarget));
+  const sharedXml = await extract('xl/sharedStrings.xml');
+  if(!sheetXml) throw new Error('Kunde inte läsa kalkylbladet.');
+  const sharedStrings = [];
+  if(sharedXml){
+    const sDoc = dp.parseFromString(sharedXml,'application/xml');
+    Array.from(sDoc.getElementsByTagName('si')).forEach(si=>{
+      const text = Array.from(si.getElementsByTagName('t')).map(t=>t.textContent).join('');
+      sharedStrings.push(text);
+    });
+  }
+  const sheetDoc = dp.parseFromString(sheetXml,'application/xml');
+  const colIndexOf = letters => { let n=0; for(const ch of letters) n = n*26 + (ch.charCodeAt(0)-64); return n-1; };
+  const rows = [];
+  for(const rowEl of Array.from(sheetDoc.getElementsByTagName('row'))){
+    const arr = [];
+    for(const c of Array.from(rowEl.children)){
+      if(c.tagName!=='c') continue;
+      const ref = c.getAttribute('r'); if(!ref) continue;
+      const letters = ref.match(/^[A-Z]+/)[0];
+      const col = colIndexOf(letters);
+      const t = c.getAttribute('t')||'n';
+      const vEl = Array.from(c.children).find(ch=>ch.tagName==='v');
+      let val='';
+      if(vEl){
+        const raw = vEl.textContent;
+        val = t==='s' ? (sharedStrings[+raw]||'') : raw;
+      }
+      arr[col] = val;
+    }
+    rows.push(arr);
+  }
+  return rows;
+}
+function parseCsvText(text){
+  const delim = text.split('\n')[0].includes(';') ? ';' : ',';
+  const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.length);
+  return lines.map(line=>{
+    const out=[]; let cur=''; let inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(inQ){
+        if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else inQ=false; }
+        else cur+=ch;
+      } else {
+        if(ch==='"') inQ=true;
+        else if(ch===delim){ out.push(cur); cur=''; }
+        else cur+=ch;
+      }
+    }
+    out.push(cur);
+    return out;
+  });
+}
+function daySegmentsFor(dow){
+  if(dow===0) return [{from:0,to:1440,rate:'ob100'}];
+  if(dow===6) return [{from:0,to:720,rate:'base'},{from:720,to:1440,rate:'ob100'}];
+  return [{from:0,to:1080,rate:'base'},{from:1080,to:1200,rate:'ob50'},{from:1200,to:1440,rate:'ob70'}];
+}
+function splitShift(startMin,endMin,dow){
+  const segs = daySegmentsFor(dow);
+  const out = {base:0,ob50:0,ob70:0,ob100:0};
+  for(const seg of segs){
+    const overlap = Math.min(endMin,seg.to)-Math.max(startMin,seg.from);
+    if(overlap>0) out[seg.rate]+=overlap;
+  }
+  return out;
+}
+function hhmm(min){
+  const m = ((min%1440)+1440)%1440;
+  const h = Math.floor(m/60), mm = m%60;
+  return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm;
+}
+const MONTHS_SV = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+const WEEKDAYS_SV = ['Sön','Mån','Tis','Ons','Tor','Fre','Lör'];
+function dateLabel(dateStr, dow){
+  const [y,mo,d] = dateStr.split('-').map(Number);
+  return WEEKDAYS_SV[dow] + ' ' + d + ' ' + MONTHS_SV[mo-1];
+}
+function sek(n){
+  return new Intl.NumberFormat('sv-SE',{minimumFractionDigits:0,maximumFractionDigits:0}).format(Math.round(n)) + ' kr';
+}
+function hrs(min){
+  return (min/60).toFixed(2).replace('.',',') + ' h';
+}
+const STORE_KEY = 'lonetracker_v1';
+
+class Component extends DCLogic {
+  state = {
+    activeTab: 'lon',
+    shifts: [],
+    fileName: null,
+    parseError: null,
+    baseRate: 177.44,
+    payments: [],
+    newPaymentName: '',
+    newPaymentAmount: '',
+    netInput: '',
+    expanded: {},
+  };
+
+  componentDidMount(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      if(raw){
+        const d = JSON.parse(raw);
+        this.setState({
+          shifts: d.shifts||[],
+          fileName: d.fileName||null,
+          baseRate: (d.baseRate!=null? d.baseRate : (this.props.baseRate ?? 177.44)),
+          payments: d.payments||[],
+          netInput: d.netInput||'',
+        });
+      } else if(this.props.baseRate){
+        this.setState({baseRate:this.props.baseRate});
+      }
+    }catch(e){}
+  }
+
+  persist(patch){
+    const cur = {
+      shifts:this.state.shifts, fileName:this.state.fileName, baseRate:this.state.baseRate,
+      payments:this.state.payments, netInput:this.state.netInput,
+    };
+    const next = {...cur, ...patch};
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(next)); }catch(e){}
+  }
+
+  setTab(t){ this.setState({activeTab:t}); }
+
+  handleFile(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const isCSV = /\.csv$/i.test(file.name);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try{
+        const rows = isCSV ? parseCsvText(ev.target.result) : await readXlsxRows(ev.target.result);
+        const norm = c => String(c==null?'':c).trim().toLowerCase();
+        let headerIdx=-1, dateCol=-1;
+        for(let i=0;i<rows.length;i++){
+          const dc = rows[i].findIndex(c=>norm(c)==='datum');
+          if(dc>-1){ headerIdx=i; dateCol=dc; break; }
+        }
+        if(headerIdx===-1) throw new Error('Hittade ingen "Datum"-kolumn i filen.');
+        const headerRow = rows[headerIdx];
+        const allIdx = kw => headerRow.reduce((acc,c,idx)=>{ if(norm(c)===kw) acc.push(idx); return acc; }, []);
+        const startIdxs = allIdx('start');
+        const slutIdxs = allIdx('slut');
+        // pair each Start with the nearest following Slut (handles sheets with two schedule blocks, e.g. "Aktivt schema" + "Närvaro")
+        const blocks = startIdxs.map(s=>{
+          const slut = slutIdxs.filter(x=>x>s).sort((a,b)=>a-b)[0];
+          const nextStart = startIdxs.filter(x=>x>s).sort((a,b)=>a-b)[0];
+          const rastCands = headerRow.reduce((acc,c,idx)=>{ if(norm(c).includes('rast') && idx>s && (nextStart==null||idx<nextStart)) acc.push(idx); return acc; }, []);
+          return { start:s, slut, rast: rastCands[0] };
+        }).filter(b=>b.slut!=null);
+        const sampleEnd = Math.min(rows.length, headerIdx+16);
+        for(const b of blocks){
+          let score=0;
+          for(let i=headerIdx+1;i<sampleEnd;i++){
+            if(toMinutes(rows[i][b.start])!=null && toMinutes(rows[i][b.slut])!=null) score++;
+          }
+          b.score = score;
+        }
+        // only "Aktivt schema" (the leftmost Start/Slut block) is used — Närvaro (actual
+        // clock-in) columns are ignored entirely, even as a fallback.
+        blocks.sort((a,b)=>a.start-b.start);
+        if(!blocks.length) throw new Error('Hittade ingen "Start"/"Slut"-kolumn i filen.');
+        const schemaBlock = blocks[0];
+        const shifts=[];
+        for(let i=headerIdx+1;i<rows.length;i++){
+          const r = rows[i];
+          const dateRaw = r[dateCol];
+          if(!dateRaw) continue;
+          const m = String(dateRaw).match(/(\d{4})-(\d{2})-(\d{2})/);
+          if(!m) continue;
+          const sm = toMinutes(r[schemaBlock.start]), em0 = toMinutes(r[schemaBlock.slut]);
+          const brk = schemaBlock.rast!=null ? (toMinutes(r[schemaBlock.rast])||0) : 0;
+          if(sm==null || em0==null || sm===em0) continue;
+          const em = em0<=sm ? em0+1440 : em0;
+          const dow = new Date(+m[1], +m[2]-1, +m[3]).getDay();
+          shifts.push({date:m[0], dow, startMin:sm, endMin:em, breakMin:brk});
+        }
+        shifts.sort((a,b)=> a.date.localeCompare(b.date) || a.startMin-b.startMin);
+        this.setState({shifts, fileName:file.name, parseError: shifts.length ? null : 'Inga pass hittades i filen.', expanded:{}});
+        this.persist({shifts, fileName:file.name});
+      }catch(err){
+        this.setState({parseError: err.message || 'Kunde inte läsa filen.'});
+      }
+    };
+    if(isCSV) reader.readAsText(file, 'utf-8'); else reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  }
+
+  clearSchedule(){ this.setState({shifts:[], fileName:null, parseError:null, expanded:{}}); this.persist({shifts:[], fileName:null}); }
+
+  toggleExpand(i){ this.setState(s=>({expanded:{...s.expanded, [i]: !s.expanded[i]}})); }
+
+  onBaseRateChange(e){
+    const n = parseFloat(String(e.target.value).replace(',','.')) || 0;
+    this.setState({baseRate:n}); this.persist({baseRate:n});
+  }
+
+  onNameChange(e){ this.setState({newPaymentName:e.target.value}); }
+  onAmountChange(e){ this.setState({newPaymentAmount:e.target.value}); }
+  addPayment(){
+    const name = this.state.newPaymentName.trim();
+    const amt = parseFloat(String(this.state.newPaymentAmount).replace(',','.'));
+    if(!name || !isFinite(amt)) return;
+    const payments = [...this.state.payments, {id: Date.now()+Math.random(), name, amount:amt}];
+    this.setState({payments, newPaymentName:'', newPaymentAmount:''});
+    this.persist({payments});
+  }
+  removePayment(id){
+    const payments = this.state.payments.filter(p=>p.id!==id);
+    this.setState({payments}); this.persist({payments});
+  }
+  onNetChange(e){ const v = e.target.value; this.setState({netInput:v}); this.persist({netInput:v}); }
+
+  renderVals(){
+    const baseRate = this.state.baseRate || 0;
+    let totalMin=0, ob50Min=0, ob70Min=0, ob100Min=0;
+
+    const shiftRows = this.state.shifts.map((s,i)=>{
+      const seg = splitShift(s.startMin, s.endMin, s.dow);
+      const segTotal = seg.base+seg.ob50+seg.ob70+seg.ob100;
+      const brk = s.breakMin||0;
+      const factor = segTotal>0 ? Math.max(0, segTotal-brk)/segTotal : 1;
+      const base = seg.base*factor, ob50 = seg.ob50*factor, ob70 = seg.ob70*factor, ob100 = seg.ob100*factor;
+      totalMin += base+ob50+ob70+ob100; ob50Min += ob50; ob70Min += ob70; ob100Min += ob100;
+      const amount = (base/60)*baseRate + (ob50/60)*baseRate*0.5 + (ob70/60)*baseRate*0.7 + (ob100/60)*baseRate*1.0;
+      return {
+        dateLabel: dateLabel(s.date, s.dow),
+        timeLabel: hhmm(s.startMin) + '–' + hhmm(s.endMin),
+        amountLabel: sek(amount),
+        expanded: !!this.state.expanded[i],
+        toggle: () => this.toggleExpand(i),
+        hasBase: base>0.4, baseLabel: hrs(base),
+        hasOb50: ob50>0.4, ob50Label: hrs(ob50),
+        hasOb70: ob70>0.4, ob70Label: hrs(ob70),
+        hasOb100: ob100>0.4, ob100Label: hrs(ob100),
+        hasBreak: brk>0, breakLabel: hrs(brk),
+      };
+    });
+
+    const baseAmount = (totalMin/60)*baseRate;
+    const ob50Amount = (ob50Min/60)*baseRate*0.5;
+    const ob70Amount = (ob70Min/60)*baseRate*0.7;
+    const ob100Amount = (ob100Min/60)*baseRate*1.0;
+    const gross = baseAmount+ob50Amount+ob70Amount+ob100Amount;
+
+    const paymentsTotal = this.state.payments.reduce((a,p)=>a+p.amount,0);
+    const netNum = parseFloat(String(this.state.netInput).replace(',','.'));
+    const hasNet = isFinite(netNum) && this.state.netInput!=='';
+    const leftover = hasNet ? netNum-paymentsTotal : 0;
+
+    const activeStyleBase = 'padding:14px 20px;display:flex;align-items:center;justify-content:center;gap:6px;border:none;background:transparent;cursor:pointer;font-family:Archivo,sans-serif;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;margin-top:-2px;';
+
+    return {
+      isLonTab: this.state.activeTab==='lon',
+      isPaymentsTab: this.state.activeTab==='payments',
+      goLon: () => this.setTab('lon'),
+      goPayments: () => this.setTab('payments'),
+      lonNavStyle: activeStyleBase + (this.state.activeTab==='lon' ? 'color:#ec3013;border-top:2px solid #ec3013;' : 'color:#7d7979;border-top:2px solid transparent;'),
+      paymentsNavStyle: activeStyleBase + (this.state.activeTab==='payments' ? 'color:#ec3013;border-top:2px solid #ec3013;' : 'color:#7d7979;border-top:2px solid transparent;'),
+
+      hasSchedule: this.state.shifts.length>0,
+      noSchedule: this.state.shifts.length===0,
+      fileName: this.state.fileName,
+      hasError: !!this.state.parseError,
+      parseError: this.state.parseError,
+      handleFile: (e)=>this.handleFile(e),
+      clearSchedule: ()=>this.clearSchedule(),
+
+      baseRate: baseRate,
+      baseRateLabel: baseRate.toFixed(2).replace('.',','),
+      onBaseRateChange: (e)=>this.onBaseRateChange(e),
+
+      grossLabel: sek(gross),
+      totalHoursLabel: hrs(totalMin),
+      shiftCountLabel: String(this.state.shifts.length),
+
+      baseAmountLabel: sek(baseAmount),
+      hasOb50: ob50Min>0.4, ob50HoursLabel: hrs(ob50Min), ob50AmountLabel: sek(ob50Amount), ob50RateLabel: (baseRate*0.5).toFixed(2).replace('.',','),
+      hasOb70: ob70Min>0.4, ob70HoursLabel: hrs(ob70Min), ob70AmountLabel: sek(ob70Amount), ob70RateLabel: (baseRate*0.7).toFixed(2).replace('.',','),
+      hasOb100: ob100Min>0.4, ob100HoursLabel: hrs(ob100Min), ob100AmountLabel: sek(ob100Amount), ob100RateLabel: baseRate.toFixed(2).replace('.',','),
+
+      shiftRows,
+
+      newPaymentName: this.state.newPaymentName,
+      newPaymentAmount: this.state.newPaymentAmount,
+      onNameChange: (e)=>this.onNameChange(e),
+      onAmountChange: (e)=>this.onAmountChange(e),
+      addPayment: ()=>this.addPayment(),
+      paymentRows: this.state.payments.map(p=>({name:p.name, amountLabel: sek(p.amount), remove: ()=>this.removePayment(p.id)})),
+      noPayments: this.state.payments.length===0,
+      paymentsTotalLabel: sek(paymentsTotal),
+
+      netInput: this.state.netInput,
+      onNetChange: (e)=>this.onNetChange(e),
+      hasNet,
+      leftoverLabel: sek(leftover),
+      leftoverColor: leftover<0 ? '#ff9783' : '#f3f2f2',
+    };
+  }
+}
+
+</script>
+</body>
+</html>
