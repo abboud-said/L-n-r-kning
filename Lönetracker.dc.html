@@ -522,7 +522,7 @@ class Component extends DCLogic {
     const hasNet = isFinite(netNum) && this.state.netInput!=='';
     const leftover = hasNet ? netNum-paymentsTotal : 0;
 
-    const activeStyleBase = 'padding:14px 20px;display:flex;align-items:center;justify-content:center;gap:6px;border:none;background:transparent;cursor:pointer;font-family:Archivo,sans-serif;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;margin-top:-2px;';
+    const activeStyleBase = 'padding:18px 20px;display:flex;align-items:center;justify-content:center;gap:6px;border:none;background:transparent;cursor:pointer;font-family:Archivo,sans-serif;font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.06em;margin-top:-2px;';
 
     return {
       isLonTab: this.state.activeTab==='lon',
