@@ -222,11 +222,69 @@
         </div>
       </sc-if>
 
+      <sc-if value="{{ isParkTab }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:20px">
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#7d7979">Parkeringsvillkor</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#eae9e9;border:1px solid rgba(32,30,29,0.4)">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <div style="font-size:13px;font-weight:800;color:#201e1d">Fri parkering</div>
+                <div style="font-size:11px;color:#7d7979">Timmar per pass innan det kostar</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px">
+                <input type="number" step="0.1" value="{{ parkFreeHours }}" onChange="{{ onParkFreeHoursChange }}" style="width:70px;padding:8px 10px;border:1px solid rgba(32,30,29,0.4);background:#f3f2f2;font-size:14px;text-align:right;font-family:'Archivo';color:#201e1d"/>
+                <span style="font-size:14px;color:#201e1d">h</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#eae9e9;border:1px solid rgba(32,30,29,0.4)">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <div style="font-size:13px;font-weight:800;color:#201e1d">Kostnad/timme</div>
+                <div style="font-size:11px;color:#7d7979">Efter fri tid</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px">
+                <input type="number" step="0.5" value="{{ parkRate }}" onChange="{{ onParkRateChange }}" style="width:70px;padding:8px 10px;border:1px solid rgba(32,30,29,0.4);background:#f3f2f2;font-size:14px;text-align:right;font-family:'Archivo';color:#201e1d"/>
+                <span style="font-size:14px;color:#201e1d">kr</span>
+              </div>
+            </div>
+          </div>
+
+          <sc-if value="{{ hasSchedule }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:20px">
+
+              <div style="display:flex;flex-direction:column;gap:4px;padding:18px;background:#201e1d;color:#f3f2f2">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#bab6b6">Parkeringskostnad denna period</div>
+                <div style="font-size:34px;font-weight:800;font-family:'Archivo'">{{ parkTotalLabel }}</div>
+                <div style="font-size:12px;color:#bab6b6">{{ parkPaidShiftsLabel }} av {{ shiftCountLabel }} pass kostade</div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#7d7979">Parkering per pass</div>
+                <sc-for list="{{ parkRows }}" as="row" hint-placeholder-count="3">
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#f8f4f4;border:1px solid rgba(32,30,29,0.4)">
+                    <div>
+                      <div style="font-weight:800;font-size:13px;color:#201e1d">{{ row.dateLabel }}</div>
+                      <div style="font-size:12px;color:#7d7979">{{ row.durationLabel }}</div>
+                    </div>
+                    <div style="font-weight:800;font-size:14px;color:{{ row.costColor }}">{{ row.costLabel }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noSchedule }}" hint-placeholder-val="{{ true }}">
+            <div style="font-size:12px;color:#7d7979">Ladda upp ett schema under fliken Lön för att se parkeringskostnad.</div>
+          </sc-if>
+
+        </div>
+      </sc-if>
+
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;border-top:2px solid rgba(32,30,29,0.4)">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:2px solid rgba(32,30,29,0.4)">
       <button onClick="{{ goLon }}" style="{{ lonNavStyle }}">Lön</button>
       <button onClick="{{ goPayments }}" style="{{ paymentsNavStyle }}">Betalningar</button>
+      <button onClick="{{ goPark }}" style="{{ parkNavStyle }}">Parkering</button>
     </div>
 
   </div>
@@ -389,6 +447,8 @@ class Component extends DCLogic {
     newPaymentName: '',
     newPaymentAmount: '',
     expanded: {},
+    parkFreeHours: 3.5,
+    parkRate: 25,
   };
 
   componentDidMount(){
@@ -402,6 +462,8 @@ class Component extends DCLogic {
           baseRate: (d.baseRate!=null? d.baseRate : (this.props.baseRate ?? 177.44)),
           taxRate: d.taxRate!=null ? d.taxRate : 30,
           payments: d.payments||[],
+          parkFreeHours: d.parkFreeHours!=null ? d.parkFreeHours : 3.5,
+          parkRate: d.parkRate!=null ? d.parkRate : 25,
         });
       } else if(this.props.baseRate){
         this.setState({baseRate:this.props.baseRate});
@@ -413,6 +475,7 @@ class Component extends DCLogic {
     const cur = {
       shifts:this.state.shifts, fileName:this.state.fileName, baseRate:this.state.baseRate,
       taxRate:this.state.taxRate, payments:this.state.payments,
+      parkFreeHours:this.state.parkFreeHours, parkRate:this.state.parkRate,
     };
     const next = {...cur, ...patch};
     try{ localStorage.setItem(STORE_KEY, JSON.stringify(next)); }catch(e){}
@@ -498,6 +561,15 @@ class Component extends DCLogic {
     this.setState({taxRate:n}); this.persist({taxRate:n});
   }
 
+  onParkFreeHoursChange(e){
+    const n = parseFloat(String(e.target.value).replace(',','.')) || 0;
+    this.setState({parkFreeHours:n}); this.persist({parkFreeHours:n});
+  }
+  onParkRateChange(e){
+    const n = parseFloat(String(e.target.value).replace(',','.')) || 0;
+    this.setState({parkRate:n}); this.persist({parkRate:n});
+  }
+
   onNameChange(e){ this.setState({newPaymentName:e.target.value}); }
   onAmountChange(e){ this.setState({newPaymentAmount:e.target.value}); }
   addPayment(){
@@ -552,15 +624,35 @@ class Component extends DCLogic {
     const hasNet = this.state.shifts.length>0;
     const leftover = hasNet ? netAmount-paymentsTotal : 0;
 
-    const activeStyleBase = 'padding:18px 20px;display:flex;align-items:center;justify-content:center;gap:6px;border:none;background:transparent;cursor:pointer;font-family:Archivo,sans-serif;font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.06em;margin-top:-2px;';
+    const parkFreeHours = this.state.parkFreeHours!=null ? this.state.parkFreeHours : 3.5;
+    const parkRate = this.state.parkRate!=null ? this.state.parkRate : 25;
+    let parkTotal = 0, parkPaidShifts = 0;
+    const parkRows = this.state.shifts.map(s=>{
+      const durationHours = (s.endMin-s.startMin)/60;
+      const payableHours = Math.max(0, durationHours-parkFreeHours);
+      const cost = payableHours*parkRate;
+      if(cost>0.005) parkPaidShifts++;
+      parkTotal += cost;
+      return {
+        dateLabel: dateLabel(s.date, s.dow),
+        durationLabel: durationHours.toFixed(2).replace('.',',') + ' h parkerad',
+        costLabel: cost>0.005 ? sek(cost) : 'Gratis',
+        costColor: cost>0.005 ? '#ae1800' : '#7d7979',
+      };
+    });
+
+    const activeStyleBase = 'padding:16px 8px;display:flex;align-items:center;justify-content:center;gap:6px;border:none;background:transparent;cursor:pointer;font-family:Archivo,sans-serif;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.03em;margin-top:-2px;';
 
     return {
       isLonTab: this.state.activeTab==='lon',
       isPaymentsTab: this.state.activeTab==='payments',
+      isParkTab: this.state.activeTab==='park',
       goLon: () => this.setTab('lon'),
       goPayments: () => this.setTab('payments'),
+      goPark: () => this.setTab('park'),
       lonNavStyle: activeStyleBase + (this.state.activeTab==='lon' ? 'color:#ec3013;border-top:2px solid #ec3013;' : 'color:#7d7979;border-top:2px solid transparent;'),
       paymentsNavStyle: activeStyleBase + (this.state.activeTab==='payments' ? 'color:#ec3013;border-top:2px solid #ec3013;' : 'color:#7d7979;border-top:2px solid transparent;'),
+      parkNavStyle: activeStyleBase + (this.state.activeTab==='park' ? 'color:#ec3013;border-top:2px solid #ec3013;' : 'color:#7d7979;border-top:2px solid transparent;'),
 
       hasSchedule: this.state.shifts.length>0,
       noSchedule: this.state.shifts.length===0,
@@ -603,6 +695,14 @@ class Component extends DCLogic {
       hasNet,
       leftoverLabel: sek(leftover),
       leftoverColor: leftover<0 ? '#ff9783' : '#f3f2f2',
+
+      parkFreeHours: parkFreeHours,
+      onParkFreeHoursChange: (e)=>this.onParkFreeHoursChange(e),
+      parkRate: parkRate,
+      onParkRateChange: (e)=>this.onParkRateChange(e),
+      parkRows,
+      parkTotalLabel: sek(parkTotal),
+      parkPaidShiftsLabel: String(parkPaidShifts),
     };
   }
 }
