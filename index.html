@@ -186,12 +186,29 @@
 
           <div style="display:flex;flex-direction:column">
             <sc-for list="{{ paymentRows }}" as="p" hint-placeholder-count="3">
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(32,30,29,0.2)">
-                <div style="font-size:14px;color:#201e1d">{{ p.name }}</div>
-                <div style="display:flex;align-items:center;gap:12px">
-                  <div style="font-size:14px;font-weight:600;color:#201e1d">{{ p.amountLabel }}</div>
-                  <button onClick="{{ p.remove }}" style="border:none;background:none;color:#ae1800;font-size:18px;line-height:1;cursor:pointer;font-weight:800;padding:0 2px">×</button>
-                </div>
+              <div style="border-bottom:1px solid rgba(32,30,29,0.2)">
+                <sc-if value="{{ p.notEditing }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
+                    <div style="font-size:14px;color:#201e1d">{{ p.name }}</div>
+                    <div style="display:flex;align-items:center;gap:12px">
+                      <div style="font-size:14px;font-weight:600;color:#201e1d">{{ p.amountLabel }}</div>
+                      <button onClick="{{ p.startEdit }}" style="border:1px solid rgba(32,30,29,0.4);background:transparent;color:#ae1800;font-family:'Archivo';font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;cursor:pointer;padding:6px 10px">Ändra</button>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ p.isEditing }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:8px;padding:12px 0">
+                    <div style="display:flex;gap:8px">
+                      <input placeholder="Namn" value="{{ p.editName }}" onChange="{{ p.onEditNameChange }}" style="flex:1;min-width:0;padding:10px 12px;border:1px solid rgba(32,30,29,0.4);background:#fff;font-size:13px;font-family:'Archivo';color:#201e1d"/>
+                      <input placeholder="Belopp" inputMode="decimal" value="{{ p.editAmount }}" onChange="{{ p.onEditAmountChange }}" style="width:90px;padding:10px 12px;border:1px solid rgba(32,30,29,0.4);background:#fff;font-size:13px;font-family:'Archivo';color:#201e1d"/>
+                    </div>
+                    <div style="display:flex;gap:8px">
+                      <button onClick="{{ p.saveEdit }}" style="flex:1;padding:10px 12px;background:#ec3013;color:#fff;border:none;font-weight:800;font-size:12px;font-family:'Archivo';cursor:pointer;text-transform:uppercase;letter-spacing:0.04em">Spara</button>
+                      <button onClick="{{ p.cancelEdit }}" style="flex:1;padding:10px 12px;background:transparent;color:#201e1d;border:1px solid rgba(32,30,29,0.4);font-weight:800;font-size:12px;font-family:'Archivo';cursor:pointer;text-transform:uppercase;letter-spacing:0.04em">Avbryt</button>
+                      <button onClick="{{ p.remove }}" style="flex:1;padding:10px 12px;background:transparent;color:#ae1800;border:1px solid #ec3013;font-weight:800;font-size:12px;font-family:'Archivo';cursor:pointer;text-transform:uppercase;letter-spacing:0.04em">Ta bort</button>
+                    </div>
+                  </div>
+                </sc-if>
               </div>
             </sc-for>
             <sc-if value="{{ noPayments }}" hint-placeholder-val="{{ true }}">
@@ -434,6 +451,36 @@ function hrs(min){
   return (min/60).toFixed(2).replace('.',',') + ' h';
 }
 const STORE_KEY = 'lonetracker_v1';
+// Utgifter ligger i en EGEN nyckel. De hör inte ihop med schemat och ska aldrig
+// skrivas över när ett nytt schema laddas upp.
+const PAYMENTS_KEY = 'lonetracker_payments_v1';
+
+function normalizePayments(arr){
+  if(!Array.isArray(arr)) return [];
+  return arr.filter(p => p && typeof p === 'object').map(p => ({
+    id: (p.id!=null ? p.id : Date.now()+Math.random()),
+    name: String(p.name==null ? '' : p.name),
+    amount: (typeof p.amount === 'number' && isFinite(p.amount)) ? p.amount : (parseFloat(String(p.amount).replace(',','.')) || 0),
+  }));
+}
+
+// Läser alltid utgifterna från sin egen nyckel. Saknas den (första gången efter
+// uppdateringen) flyttas de över från det gamla gemensamma lagret.
+function loadPayments(){
+  try{
+    const raw = localStorage.getItem(PAYMENTS_KEY);
+    if(raw!=null) return normalizePayments(JSON.parse(raw));
+  }catch(e){}
+  try{
+    const legacy = localStorage.getItem(STORE_KEY);
+    if(legacy) return normalizePayments(JSON.parse(legacy).payments);
+  }catch(e){}
+  return [];
+}
+
+function savePayments(list){
+  try{ localStorage.setItem(PAYMENTS_KEY, JSON.stringify(list)); }catch(e){}
+}
 
 class Component extends DCLogic {
   state = {
@@ -444,6 +491,9 @@ class Component extends DCLogic {
     baseRate: 177.44,
     taxRate: 30,
     payments: [],
+    editingId: null,
+    editName: '',
+    editAmount: '',
     newPaymentName: '',
     newPaymentAmount: '',
     expanded: {},
@@ -461,7 +511,6 @@ class Component extends DCLogic {
           fileName: d.fileName||null,
           baseRate: (d.baseRate!=null? d.baseRate : (this.props.baseRate ?? 177.44)),
           taxRate: d.taxRate!=null ? d.taxRate : 30,
-          payments: d.payments||[],
           parkFreeHours: d.parkFreeHours!=null ? d.parkFreeHours : 3.5,
           parkRate: d.parkRate!=null ? d.parkRate : 25,
         });
@@ -469,12 +518,28 @@ class Component extends DCLogic {
         this.setState({baseRate:this.props.baseRate});
       }
     }catch(e){}
+    // Utgifterna laddas separat, även om schemat ovan inte gick att läsa.
+    const payments = loadPayments();
+    savePayments(payments);
+    this.setState({payments});
+    // Håll utgifterna i synk om appen är öppen i flera flikar/fönster samtidigt.
+    if(this.__onStorage){ try{ window.removeEventListener('storage', this.__onStorage); }catch(e){} }
+    this.__onStorage = (e)=>{
+      if(e && e.key===PAYMENTS_KEY) this.setState({payments: loadPayments()});
+    };
+    try{ window.addEventListener('storage', this.__onStorage); }catch(e){}
+  }
+
+  componentWillUnmount(){
+    if(this.__onStorage){ try{ window.removeEventListener('storage', this.__onStorage); }catch(e){} }
   }
 
   persist(patch){
+    // OBS: payments ingår medvetet INTE här. Schema/inställningar och utgifter
+    // lagras var för sig, så att en schemauppladdning aldrig kan radera utgifter.
     const cur = {
       shifts:this.state.shifts, fileName:this.state.fileName, baseRate:this.state.baseRate,
-      taxRate:this.state.taxRate, payments:this.state.payments,
+      taxRate:this.state.taxRate,
       parkFreeHours:this.state.parkFreeHours, parkRate:this.state.parkRate,
     };
     const next = {...cur, ...patch};
@@ -572,17 +637,39 @@ class Component extends DCLogic {
 
   onNameChange(e){ this.setState({newPaymentName:e.target.value}); }
   onAmountChange(e){ this.setState({newPaymentAmount:e.target.value}); }
+  // Alla ändringar av utgifter går genom den här. Listan läses om från lagret
+  // först, så att ett gammalt fönster inte skriver över nyare utgifter.
+  mutatePayments(fn){
+    const stored = loadPayments();
+    const cur = (stored.length===0 && this.state.payments.length>0) ? this.state.payments : stored;
+    const next = fn(cur);
+    savePayments(next);
+    this.setState({payments: next});
+    return next;
+  }
   addPayment(){
     const name = this.state.newPaymentName.trim();
     const amt = parseFloat(String(this.state.newPaymentAmount).replace(',','.'));
     if(!name || !isFinite(amt)) return;
-    const payments = [...this.state.payments, {id: Date.now()+Math.random(), name, amount:amt}];
-    this.setState({payments, newPaymentName:'', newPaymentAmount:''});
-    this.persist({payments});
+    this.mutatePayments(list => [...list, {id: Date.now()+Math.random(), name, amount:amt}]);
+    this.setState({newPaymentName:'', newPaymentAmount:''});
   }
   removePayment(id){
-    const payments = this.state.payments.filter(p=>p.id!==id);
-    this.setState({payments}); this.persist({payments});
+    this.mutatePayments(list => list.filter(p=>p.id!==id));
+    if(this.state.editingId===id) this.setState({editingId:null, editName:'', editAmount:''});
+  }
+  startEdit(p){ this.setState({editingId:p.id, editName:p.name, editAmount:String(p.amount).replace('.',',')}); }
+  cancelEdit(){ this.setState({editingId:null, editName:'', editAmount:''}); }
+  onEditNameChange(e){ this.setState({editName:e.target.value}); }
+  onEditAmountChange(e){ this.setState({editAmount:e.target.value}); }
+  saveEdit(){
+    const id = this.state.editingId;
+    if(id==null) return;
+    const name = String(this.state.editName).trim();
+    const amt = parseFloat(String(this.state.editAmount).replace(',','.'));
+    if(!name || !isFinite(amt)) return;
+    this.mutatePayments(list => list.map(p => p.id===id ? {...p, name, amount:amt} : p));
+    this.setState({editingId:null, editName:'', editAmount:''});
   }
   renderVals(){
     const baseRate = this.state.baseRate || 0;
@@ -688,7 +775,20 @@ class Component extends DCLogic {
       onNameChange: (e)=>this.onNameChange(e),
       onAmountChange: (e)=>this.onAmountChange(e),
       addPayment: ()=>this.addPayment(),
-      paymentRows: this.state.payments.map(p=>({name:p.name, amountLabel: sek(p.amount), remove: ()=>this.removePayment(p.id)})),
+      paymentRows: this.state.payments.map(p=>({
+        name: p.name,
+        amountLabel: sek(p.amount),
+        isEditing: this.state.editingId===p.id,
+        notEditing: this.state.editingId!==p.id,
+        editName: this.state.editName,
+        editAmount: this.state.editAmount,
+        onEditNameChange: (e)=>this.onEditNameChange(e),
+        onEditAmountChange: (e)=>this.onEditAmountChange(e),
+        startEdit: ()=>this.startEdit(p),
+        saveEdit: ()=>this.saveEdit(),
+        cancelEdit: ()=>this.cancelEdit(),
+        remove: ()=>this.removePayment(p.id),
+      })),
       noPayments: this.state.payments.length===0,
       paymentsTotalLabel: sek(paymentsTotal),
 
