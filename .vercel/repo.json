@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_EI12xGWBT6EqMj7kW5SMEHQWdSS6",
+      "name": "lonetracker",
+      "directory": ".",
+      "orgId": "team_WxtPkoA6heilwuNKzBDd04oX"
+    }
+  ]
+}
